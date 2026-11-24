@@ -4,7 +4,7 @@ import {
   asMarkdown, EXAMPLE, formatLocal, MAX_CARRYOVER_BYTES, readCarryover,
   resolveItem, SECTIONS, serializeCarryover, startHandover,
 } from './core.mjs';
-import { configured, generateHandover } from './firebase.mjs';
+import { configured, deviceConfigured, generateHandover } from './firebase.mjs';
 import './style.css';
 
 const example = { ...formatLocal(EXAMPLE), mode: 'Example' };
@@ -84,6 +84,7 @@ function App() {
   const [viewId, setViewId] = useState(null);
   const [carryForward, setCarryForward] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(null);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [imported, setImported] = useState(null);
@@ -104,7 +105,9 @@ function App() {
     setCopied(false);
     setBusy(true);
     try {
-      const generated = mode === 'format' ? formatLocal(notes) : await generateHandover(notes, mode === 'hybrid');
+      const generated = mode === 'format'
+        ? formatLocal(notes)
+        : await generateHandover(notes, mode === 'hybrid', setDownloadProgress);
       const id = (preceding?.id ?? 0) + 1;
       setHistory(existing => {
         const previous = carryForward ? existing[0] ?? imported : null;
@@ -116,6 +119,7 @@ function App() {
       setError(error instanceof Error ? error.message : 'Unable to create the handover.');
     } finally {
       setBusy(false);
+      setDownloadProgress(null);
     }
   }
 
@@ -211,6 +215,9 @@ function App() {
             ))}
           </fieldset>
           <button className="primary" onClick={run} disabled={busy || openingFile}>{busy ? 'Creating handover…' : 'Create handover'}</button>
+          {downloadProgress !== null && (
+            <p className="carry-loaded" role="status">Downloading device model · {Math.round(downloadProgress * 100)}%</p>
+          )}
           <p className="privacy">Notes stay in this tab unless you export them. Cloud fallback can send the current field notes to Google.</p>
         </section>
         <section className="preview">
@@ -265,7 +272,9 @@ function App() {
           </div>
         </section>
       </main>
-      <footer><i />{configured ? 'Firebase settings loaded' : 'Local formatting available · Firebase setup pending'}</footer>
+      <footer><i />{configured ? 'Firebase settings loaded'
+        : deviceConfigured ? 'On-device AI configured · Cloud requires App Check'
+          : 'Local formatting available · Firebase setup pending'}</footer>
       <dialog ref={historyDialog} aria-labelledby="history-title">
         <form method="dialog"><button className="close">Close</button></form>
         <h2 id="history-title">Session history</h2>
