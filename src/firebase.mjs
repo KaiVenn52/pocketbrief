@@ -4,6 +4,7 @@ import { getAI, getGenerativeModel, GoogleAIBackend, InferenceMode, InferenceSou
 import { sourceLines, validateModelOutput } from './core.mjs';
 
 const env = import.meta.env;
+const cloudModel = 'gemini-3.5-flash-lite';
 export const deviceConfigured = Boolean(
   env.VITE_FIREBASE_PROJECT_ID && env.VITE_FIREBASE_API_KEY &&
   env.VITE_FIREBASE_APP_ID,
@@ -72,6 +73,7 @@ export async function generateHandover(text, allowCloud = false, onDownloadProgr
   const sources = sourceLines(text);
   const aiService = getService(allowCloud);
   let model = getGenerativeModel(aiService, {
+    model: cloudModel,
     mode: allowCloud ? InferenceMode.PREFER_ON_DEVICE : InferenceMode.ONLY_ON_DEVICE,
   });
   try {
@@ -79,7 +81,7 @@ export async function generateHandover(text, allowCloud = false, onDownloadProgr
   } catch (error) {
     if (!allowCloud || !(error instanceof DevicePreparationTimeout)) throw error;
     onDownloadProgress?.(null);
-    model = getGenerativeModel(aiService, { mode: InferenceMode.ONLY_IN_CLOUD });
+    model = getGenerativeModel(aiService, { model: cloudModel, mode: InferenceMode.ONLY_IN_CLOUD });
   }
   const instructions = [
     'Classify each numbered field note as an observation, an action already requested, or an open question.',
